@@ -125,13 +125,13 @@ class WildcatSimulation:
 
         demographic_events = [
             msprime.PopulationParametersChange(time=bottleneck_time_domestic, initial_size=pop_size_domestic_2,
-                                               population_id=domestic),  # pop size change executes "before" bottleneck
+                                               population=domestic),  # pop size change executes "before" bottleneck
             msprime.InstantaneousBottleneck(time=bottleneck_time_domestic, strength=bottleneck_strength_domestic,
-                                            population_id=domestic),
+                                            population=domestic),
             msprime.PopulationParametersChange(time=bottleneck_time_wild, initial_size=pop_size_wild_2,
-                                               population_id=wild),
+                                               population=wild),
             msprime.InstantaneousBottleneck(time=bottleneck_time_wild, strength=bottleneck_strength_wild,
-                                            population_id=wild),
+                                            population=wild),
             msprime.MigrationRateChange(time=migration_time_2, rate=mig_rate_post_split, matrix_index=(domestic, wild)),
             msprime.MigrationRateChange(time=migration_time_2, rate=mig_rate_post_split, matrix_index=(wild, domestic)),
             msprime.MassMigration(time=div_time, source=domestic, dest=wild, proportion=1)]
