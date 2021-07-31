@@ -5,6 +5,7 @@ logs/
 .idea/
 output/
 scripts/old/
+sbi-logs/
 notes/
 plots/*
 !plots/model_schematic.png
