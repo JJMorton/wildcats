@@ -48,7 +48,7 @@ class JointPrior(Distribution):
             raise IndexError(f'log_prob requires size of last dimension of argument to be the same as the number of prior distributions ({len(self.dists)}), got shape {x.shape} instead')
 
         # Reshape x so we have a simple array of parameter sets, no matter the original dimensionality of x
-        new = x.reshape((max(1, np.prod(x.shape[:-1])), 16))
+        new = x.reshape((max(1, np.prod(x.shape[:-1])), len(self.dists)))
         res = torch.zeros(new.shape[0])
 
         # For each of the parameter sets, calculate the log_prob of each parameter, then sum them to get the joint probability
@@ -83,18 +83,21 @@ distributions = {
 
 }
 
-def join_priors():
-    return JointPrior(list(distributions.values()))
+def join_priors(dists):
+    return JointPrior(list(dists.values()))
 
-def plot_all_priors():
-    num_plots = len(distributions)
+def get_prior_limits(param):
+    return distributions[param].icdf(Tensor([0.000001, 0.99999]))
+
+def plot_all_priors(dists):
+    num_plots = len(dists)
     num_cols = 4
     num_rows = int(np.ceil(num_plots / num_cols))
-    fig, axes = plt.subplots(num_rows, num_cols, constrained_layout=True, figsize=(15, 15))
-    for ax, dist, param in zip(axes.flat, distributions.values(), distributions.keys()):
+    fig, axes = plt.subplots(num_rows, num_cols, constrained_layout=True, figsize=(4 * num_cols, 4 * num_rows))
+    for ax, dist, param in zip(axes.flat, dists.values(), dists.keys()):
         ax.set_title('{0}\nmean={1:.2G}, var={2:.2G}'.format(param, dist.mean, dist.variance))
 #         ax.set_title(param)
-        minmax = dist.icdf(Tensor([0.000001, 0.99999]))
+        minmax = get_prior_limits(param)
         x = torch.arange(*minmax, (minmax[1] - minmax[0]) / 500)
         ax.plot(x, torch.exp(dist.log_prob(x)), label="pdf")
         ax.axvline(dist.mean, ls='--', lw=1, c=(0, 0, 0, 0.5), label="mean")
