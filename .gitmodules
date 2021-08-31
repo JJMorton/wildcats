@@ -1,0 +1,3 @@
+[submodule "scripts/inference/truncnorm"]
+	path = scripts/inference/truncnorm
+	url = https://github.com/toshas/torch_truncnorm.git

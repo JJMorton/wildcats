@@ -5,8 +5,8 @@ from torch import tensor
 from torch.distributions.constraints import Constraint
 import torch.distributions.constraints as constraints
 from torch.distributions import Uniform, Distribution
-from .distributions.TruncatedNormal import TruncatedNormal # PyTorch doesn't contain a truncated normal distribution
-from .distributions.LogNormalTranslated import LogNormalTranslated
+from .truncnorm.TruncatedNormal import TruncatedNormal # PyTorch doesn't contain a truncated normal distribution
+from .lognorm.LogNormalTranslated import LogNormalTranslated
 import logging
 
 class JointConstraint(Constraint):
@@ -16,8 +16,17 @@ class JointConstraint(Constraint):
         super().__init__()
     
     def check(self, value):
-        check = torch.stack([c.check(t) for t, c in zip(value.transpose(0, len(value.shape) - 1), self._constraints)])
-        return check.transpose(0, len(check.shape) - 1)
+        # value of shape (n1, n2, 16)
+        # constraints of shape (16,)
+        # t of shape (n1, n2, 1), squeeze() gives (n1, n2)
+        # each check is of shape (n1, n2)
+        # result is of shape (n1, n2)
+        
+        checks = [c.check(t.squeeze(t.dim() - 1)) for t, c in zip(value.split(1, value.dim() - 1), self._constraints)]
+        res = checks[0]
+        for check in checks:
+            res = res & check
+        return check
 
 class JointPrior(Distribution):
     
@@ -60,18 +69,8 @@ class JointPrior(Distribution):
         if x.shape[-1] != len(self.dists):
             raise IndexError(f'log_prob requires size of last dimension of argument to be the same as the number of prior distributions ({len(self.dists)}), got shape {x.shape} instead')
 
-        # Reshape x so we have a simple array of parameter sets, no matter the original dimensionality of x
-        new = x.reshape((max(1, np.prod(x.shape[:-1])), len(self.dists)))
-        res = torch.zeros(new.shape[0])
-
-        # For each of the parameter sets, calculate the log_prob of each parameter, then sum them to get the joint probability
-        for i in range(len(res)):
-            theta = new[i]
-            logprobs = tensor([dist.log_prob(val) for val, dist in zip(theta, self.dists)])
-            res[i] = logprobs.sum()
-
-        # Reshape back to the shape of x (except one scalar value for each parameter set)
-        return res.reshape(x.shape[:-1])
+        res = sum([dist.log_prob(val) for dist, val in zip(self.dists, x.split(1, x.dim() - 1))])
+        return res.squeeze(res.dim() - 1)
     
     def sample(self, shape=torch.Size()):
         return torch.stack([dist.sample(shape) for dist in self.dists], len(shape))
@@ -85,7 +84,12 @@ distributions = {
     "captive_time": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.7), validate_args=False),
     "div_time": TruncatedNormal(a=-7, b=np.inf, loc=40000, scale=4000, validate_args=False),
     "mig_length_post_split": Uniform(low=0, high=10000, validate_args=False),
-    "mig_length_wild": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.5), validate_args=False),
+    # Original:
+#     "mig_length_wild": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.5), validate_args=False),
+    # Widen 1:
+#     "mig_length_wild": LogNormalTranslated(s=0.5, loc=0, scale=np.exp(3.2), validate_args=False),
+    # Widen 2:
+    "mig_length_wild": LogNormalTranslated(s=0.5, loc=0, scale=80, validate_args=False),
     "mig_rate_captive": LogNormalTranslated(s=0.5, loc=0, scale=0.08, validate_args=False),
     "mig_rate_post_split": TruncatedNormal(a=0, b=5, loc=0, scale=0.2, validate_args=False),
     "mig_rate_wild": LogNormalTranslated(s=0.5, loc=0, scale=0.08, validate_args=False),
@@ -104,7 +108,7 @@ distributions_normalised = {
     "bottleneck_time_wild": TruncatedNormal(a=-6, b=np.inf, loc=0, scale=1, validate_args=False),
     "captive_time": LogNormalTranslated(s=0.4, loc=0, scale=1, validate_args=False),
     "div_time": TruncatedNormal(a=-7, b=np.inf, loc=0, scale=1, validate_args=False),
-    "mig_length_post_split": Uniform(low=-0.5, high=0.5, validate_args=False),
+    "mig_length_post_split": Uniform(low=0, high=1, validate_args=False),
     "mig_length_wild": LogNormalTranslated(s=0.4, loc=0, scale=1, validate_args=False),
     "mig_rate_captive": LogNormalTranslated(s=0.5, loc=0, scale=1, validate_args=False),
     "mig_rate_post_split": TruncatedNormal(a=0, b=5, loc=0, scale=1, validate_args=False),
@@ -124,8 +128,8 @@ transforms = {
     "bottleneck_time_wild": {'loc': 3500, 'scale': 500},
     "captive_time": {'loc': 1, 'scale': np.exp(2.7)},
     "div_time": {'loc': 40000, 'scale': 4000},
-    "mig_length_post_split": {'loc': 5000, 'scale': 10000},
-    "mig_length_wild": {'loc': 1, 'scale': np.exp(2.5)},
+    "mig_length_post_split": {'loc': 0, 'scale': 10000},
+    "mig_length_wild": {'loc': 0, 'scale': 80},
     "mig_rate_captive": {'loc': 0, 'scale': 0.08},
     "mig_rate_post_split": {'loc': 0, 'scale': 0.2},
     "mig_rate_wild": {'loc': 0, 'scale': 0.08},
@@ -136,58 +140,24 @@ transforms = {
     "pop_size_domestic_2": {'loc': 5, 'scale': np.exp(9.2)}
 }
 
+def normalise_samples(samples):
+    if samples.shape[-1] != len(transforms):
+        raise IndexError("Invalid sample shape")
+    samples = samples.clone().detach()
+    for trans, s in zip(transforms.values(), samples.split(1, samples.dim() - 1)):
+        s -= trans['loc']
+        s /= trans['scale']
+    return samples
+
+def unnormalise_samples(samples):
+    if samples.shape[-1] != len(transforms):
+        raise IndexError("Invalid sample shape")
+    samples = samples.clone().detach()
+    for trans, s in zip(transforms.values(), samples.split(1, samples.dim() - 1)):
+        s *= trans['scale']
+        s += trans['loc']
+    return samples
+
 def join_priors(normalise=False):
     return JointPrior(distributions_normalised if normalise else distributions)
 
-def create_params_plot(prior, axsize=4, num_cols=4):
-    """
-    Creates an empty plot with as many subplots as there are parameters in the prior
-    """
-    num_plots = len(prior.dists)
-    num_rows = int(np.ceil(num_plots / num_cols))
-    fig, axes = plt.subplots(num_rows, num_cols, constrained_layout=True, figsize=(axsize * num_cols, axsize * num_rows))
-    for ax, param in zip(axes.flat, prior.params):
-        ax.set_title(param)
-    return fig, axes.flat
-
-def plot_samples_vs_prior(prior, sample_sets, sample_labels, axsize=4, num_cols=4):
-    """
-    Plot a histogram of each set of samples, together with the prior
-    `sample_sets` should be of the shape (number of sets, number of samples, number of parameters), but can exclude dimension 0 if there is only one set.
-    `sample_labels` should be of the shape (number of sets) and contains the samples' labels for the legend
-    """
-    
-    # Make sure samples are in correct format
-    sample_sets = np.array(sample_sets)
-    sample_labels = np.array(sample_labels)
-    if len(sample_sets.shape) == 2: sample_sets = sample_sets.reshape(1, *sample_sets.shape)
-    if len(sample_labels.shape) == 0: sample_labels = sample_labels.reshape(1)
-    if sample_sets.shape[0] != sample_labels.shape[0]:
-        raise IndexError(f'Must be one label specified for each set of samples ({sample_sets.shape[0]})')
-    if sample_sets.shape[2] != len(prior.dists):
-        raise IndexError(f'sample_sets must be of the shape (number of sets, number of samples, number of parameters)')
-    # Change sample_sets to shape (num_parameters, num_sets, num_samples)
-    sample_sets = sample_sets.swapaxes(0, 1)
-    sample_sets = sample_sets.swapaxes(0, 2)
-    
-    fig, axes = create_params_plot(prior, axsize, num_cols)
- 
-    for ax, sample_set, param, dist, limits in zip(axes, sample_sets, prior.params, prior.dists, prior.limits):
-        # Plot samples
-        bins = np.arange(*limits, (limits[1] - limits[0]) / 300)
-        for samples, sample_label in zip(sample_set, sample_labels):
-            ax.hist(samples, histtype='step', bins=bins, label=sample_label)
-            ax.set_ylabel("# Samples")
-            ax.legend(loc='upper left')
-        ax.set_ylim(top=ax.get_ylim()[1] * 1.2)
-        
-        # Plot prior
-        x = torch.arange(*limits, (limits[1] - limits[0]) / 300)
-        ax_prior = ax.twinx()
-        ax_prior.plot(x, torch.exp(dist.log_prob(x)), ls='--', color='red', label="prior")
-        ax_prior.set_ylim(auto=True, bottom=0)
-        ax_prior.legend()
-        ax_prior.set_yticks([])
-        ax_prior.set_ylim(top=ax_prior.get_ylim()[1] * 1.2)
-      
-    return fig, axes
