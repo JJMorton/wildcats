@@ -22,6 +22,7 @@ fi
 logfile="../output/failed_simulations.log"
 echo "Writing failed simulations to ${logfile}..."
 rm "$logfile"
+touch "$logfile"
 for id in $(seq 0 $((num_simulations - 1))); do
 	if [[ -e ../output/stats/stats_${id}.csv ]]; then
 		[[ -n "$(cat ../output/stats/stats_${id}.csv | grep nan)" ]] && echo $id >> "$logfile"

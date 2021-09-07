@@ -75,7 +75,6 @@ class JointPrior(Distribution):
     def sample(self, shape=torch.Size()):
         return torch.stack([dist.sample(shape) for dist in self.dists], len(shape))
 
-# 'Unnormalised' distributions
 distributions = {
     "bottleneck_strength_domestic": TruncatedNormal(a=-0.5, b=np.inf, loc=7500, scale=15000, validate_args=False),
     "bottleneck_strength_wild": TruncatedNormal(a=-0.5, b=np.inf, loc=7500, scale=15000, validate_args=False),
@@ -100,64 +99,8 @@ distributions = {
     "pop_size_domestic_2": LogNormalTranslated(s=0.2, loc=5, scale=np.exp(9.2), validate_args=False)
 }
 
-# 'Normalised' distributions (all with loc=0, scale=1)
-distributions_normalised = {
-    "bottleneck_strength_domestic": TruncatedNormal(a=-0.5, b=np.inf, loc=0, scale=1, validate_args=False),
-    "bottleneck_strength_wild": TruncatedNormal(a=-0.5, b=np.inf, loc=0, scale=1, validate_args=False),
-    "bottleneck_time_domestic": TruncatedNormal(a=-6, b=np.inf, loc=0, scale=1, validate_args=False),
-    "bottleneck_time_wild": TruncatedNormal(a=-6, b=np.inf, loc=0, scale=1, validate_args=False),
-    "captive_time": LogNormalTranslated(s=0.4, loc=0, scale=1, validate_args=False),
-    "div_time": TruncatedNormal(a=-7, b=np.inf, loc=0, scale=1, validate_args=False),
-    "mig_length_post_split": Uniform(low=0, high=1, validate_args=False),
-    "mig_length_wild": LogNormalTranslated(s=0.4, loc=0, scale=1, validate_args=False),
-    "mig_rate_captive": LogNormalTranslated(s=0.5, loc=0, scale=1, validate_args=False),
-    "mig_rate_post_split": TruncatedNormal(a=0, b=5, loc=0, scale=1, validate_args=False),
-    "mig_rate_wild": LogNormalTranslated(s=0.5, loc=0, scale=1, validate_args=False),
-    "pop_size_wild_1": LogNormalTranslated(s=0.2, loc=0, scale=1, validate_args=False),
-    "pop_size_wild_2": LogNormalTranslated(s=0.2, loc=0, scale=1, validate_args=False),
-    "pop_size_captive": LogNormalTranslated(s=0.5, loc=0, scale=1, validate_args=False),
-    "pop_size_domestic_1": LogNormalTranslated(s=0.25, loc=0, scale=1, validate_args=False),
-    "pop_size_domestic_2": LogNormalTranslated(s=0.2, loc=0, scale=1, validate_args=False)
-}
-
-# The transformations to apply to get from the 'normalised' distributions to the 'unnormalised'
-transforms = {
-    "bottleneck_strength_domestic": {'loc': 7500, 'scale': 15000},
-    "bottleneck_strength_wild": {'loc': 7500, 'scale': 15000},
-    "bottleneck_time_domestic": {'loc': 3500, 'scale': 500},
-    "bottleneck_time_wild": {'loc': 3500, 'scale': 500},
-    "captive_time": {'loc': 1, 'scale': np.exp(2.7)},
-    "div_time": {'loc': 40000, 'scale': 4000},
-    "mig_length_post_split": {'loc': 0, 'scale': 10000},
-    "mig_length_wild": {'loc': 0, 'scale': 80},
-    "mig_rate_captive": {'loc': 0, 'scale': 0.08},
-    "mig_rate_post_split": {'loc': 0, 'scale': 0.2},
-    "mig_rate_wild": {'loc': 0, 'scale': 0.08},
-    "pop_size_wild_1": {'loc': 30, 'scale': np.exp(8.7)},
-    "pop_size_wild_2": {'loc': 30, 'scale': np.exp(9)},
-    "pop_size_captive": {'loc': 10, 'scale': 100},
-    "pop_size_domestic_1": {'loc': 5, 'scale': np.exp(8.75)},
-    "pop_size_domestic_2": {'loc': 5, 'scale': np.exp(9.2)}
-}
-
-def normalise_samples(samples):
-    if samples.shape[-1] != len(transforms):
-        raise IndexError("Invalid sample shape")
-    samples = samples.clone().detach()
-    for trans, s in zip(transforms.values(), samples.split(1, samples.dim() - 1)):
-        s -= trans['loc']
-        s /= trans['scale']
-    return samples
-
-def unnormalise_samples(samples):
-    if samples.shape[-1] != len(transforms):
-        raise IndexError("Invalid sample shape")
-    samples = samples.clone().detach()
-    for trans, s in zip(transforms.values(), samples.split(1, samples.dim() - 1)):
-        s *= trans['scale']
-        s += trans['loc']
-    return samples
-
 def join_priors(normalise=False):
     return JointPrior(distributions_normalised if normalise else distributions)
 
+def get_param_names():
+    return list(distributions.keys())

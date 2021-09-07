@@ -16,6 +16,7 @@ import scipy.stats
 import scipy.stats.mstats
 
 from inference import priors
+from inference.analysis import kl_divergence
 
 # class Sampler:
 #     def __init__(self, distribution, is_normalised):
@@ -93,19 +94,18 @@ def method_npe(
 def method_snpe(
     theta,
     x,
+    x_o,
     num_rounds=2,
-    use_posterior=None,
     density_estimator='maf',
-    training_batch_size=10_000,
+    training_batch_size=50,
     dump_to_file=None,
+    calculate_kl=False,
     posterior_args={},
     training_args={}
 ):
     # Make sure we don't modify the `theta` provided to us
     theta = theta.clone().detach()
-    prior = priors.join_priors() if not use_posterior else use_posterior
-    x_o = x[0]
-
+    
     num_simulations = theta.shape[0]
     num_simulations_per_round = math.floor(num_simulations / num_rounds)
     training_batch_size = min(training_batch_size, num_simulations_per_round)
@@ -138,6 +138,9 @@ def method_snpe(
             
         posteriors.append(posterior)
         proposal = posterior.set_default_x(x_o)
+        kl = kl_divergence(prior, posterior, x_o, base=2)
+        print(f'KL divergence: {kl}')
+        dump_posterior(posterior, '.'.join(dump_to_file.split('.')[:-1]) + str(r + 1) + '.pkl')
     
     if dump_to_file is not None:
         dump_posterior(posterior, dump_to_file)
