@@ -11,3 +11,4 @@ plots/*
 !plots/model_schematic.png
 .Rproj.user
 .Rhistory
+_temporary_command_*.txt

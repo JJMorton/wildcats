@@ -9,19 +9,24 @@
 #SBATCH --mem=3G
 #SBATCH --output ../output/slurm/slurm-%A_%a.out
 
-if [[ -z "$SLURM_ARRAY_TASK_ID" ]]; then
-    echo "This task must be run as an array task, e.g. include '--array=0-500' to run 500 simulations. See 'man sbatch' for help"
-    exit 1
-fi
-
 sims_per_task=10
 
 cd "${SLURM_SUBMIT_DIR}"
 echo Running as user "$(whoami)" in directory "$(pwd)" with job ID "${SLURM_JOB_ID}"
 
 module load languages/miniconda/3
-source activate wildcats_env
+# If, instead of the next two lines, we use 'source activate wildcats_env', conda doesn't seem to
+# activate the environment correctly on BlueCrystal, and uses the wrong python interpreter.
+# Make sure you have run 'conda init' once before in your login shell before running this script,
+# as this creates the initialisation script in your ~/.bashrc.
+. ~/.bashrc
+conda activate wildcats_env
 echo Running "$(python --version)" from "$(which python)"
+
+if [[ -z "$SLURM_ARRAY_TASK_ID" ]]; then
+    echo "This task must be run as an array task, e.g. include '--array=0-500' to run 500 simulations. See 'man sbatch' for help"
+    exit 1
+fi
 
 first=$((SLURM_ARRAY_TASK_ID * sims_per_task))
 last=$((first + sims_per_task - 1))

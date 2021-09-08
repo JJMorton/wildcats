@@ -16,7 +16,8 @@ stats_file = "../data/inference/stats0.csv"
 observation_file = "../data/inference/observation.csv"
 
 # The number of simulations to run. If some fail (from timing out etc..), there will be fewer simulations than this used for inference.
-num_simulations = 500
+num_simulations = 300
 
 # The directory in which all the summary stats will be output to when running the simulations, and before merging them into one file
 simulation_output_dir = "../output/inference/stats"
+

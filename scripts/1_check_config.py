@@ -6,6 +6,8 @@ from torch import tensor
 import os
 import os.path as path
 import numpy as np
+import inference.priors
+import pandas as pd
 
 def main():
 
@@ -71,6 +73,18 @@ def main():
         os.makedirs(config.simulation_output_dir)
     else:
         print(f'Directory "{config.simulation_output_dir}" exists')
+
+    if not path.exists(config.parameters_file):
+        print('======================================')
+        print('3. Taking samples from proposal')
+        
+        with open(config.proposal_pickle_file, 'rb') as f:
+            proposal = pickle.load(f)
+
+        samples = proposal.sample((config.num_simulations,))
+        param_names = inference.priors.get_param_names()
+        pd.DataFrame(np.array(samples), columns=param_names).to_csv(config.parameters_file, index=True, index_label="index")
+        print(f'Saved proposal samples to "{config.parameters_file}"')
 
     print('======================================')
     print('OK')

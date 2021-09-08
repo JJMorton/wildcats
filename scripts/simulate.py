@@ -25,10 +25,11 @@ def simulator(params, seed):
     summary_stats = simple_sum(data)
     
     print("Simulation complete")
-    return list(summary_stats.values())
+    return list(summary_stats.keys()), list(summary_stats.values())
 
-def write_stats(stats, seed, filename):
-    np.savetxt(joinpath(config.simulation_output_dir, filename), [stats + [seed]], delimiter=',')
+def write_stats(index, stats, cols, seed, filename):
+    filepath = joinpath(config.simulation_output_dir, filename)
+    pd.DataFrame([[index] + stats + [seed]], columns=['index'] + cols + ['seed']).to_csv(filepath, index=False)
 
 def main():
     array_id=int(sys.argv[1])
@@ -42,22 +43,19 @@ def main():
     params_df = pd.read_csv(config.parameters_file, index_col="index")
     output_filename = f'stats_{array_id}.csv'
 
-    # Write empty stats now, in case job times out and script doesn't complete
-    stats = [np.nan] * num_stats
-    write_stats(stats, seed, output_filename)
-
     try:
         if array_id < 0 or array_id >= params_df.values.shape[0]:
             raise IndexError(f'Array ID not within range defined by number of rows in parameters table ({params_df.values.shape[0]})')
         theta = params_df.values[array_id]
         if len(theta) != num_params:
             raise IndexError(f'Incorrect number of parameters passed to simulator (want {num_params}, got {len(theta)})')
-        stats = simulator(theta, seed)
+        names, stats = simulator(theta, seed)
         if len(stats) != num_stats:
             raise IndexError(f'Simulator output incorrect number of summary statistics (want {num_stats}, got {len(stats)})')
-        write_stats(stats, seed, output_filename)
-    except:
-        print("Failed to calculate summary statistics, saved list of np.nan")
+        write_stats(array_id, stats, names, seed, output_filename)
+    except Exception as e:
+        print(str(e))
+        print("Failed to calculate summary statistics")
 
 
 if __name__ == "__main__":
