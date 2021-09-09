@@ -11,6 +11,9 @@
 
 sims_per_task=10
 
+# Use exit or return depending on whether the script has be executed or sourced
+[[ "$0" == "$BASH_SOURCE" ]] && ret=exit || ret=return
+
 cd "${SLURM_SUBMIT_DIR}"
 echo Running as user "$(whoami)" in directory "$(pwd)" with job ID "${SLURM_JOB_ID}"
 
@@ -25,7 +28,7 @@ echo Running "$(python --version)" from "$(which python)"
 
 if [[ -z "$SLURM_ARRAY_TASK_ID" ]]; then
     echo "This task must be run as an array task, e.g. include '--array=0-500' to run 500 simulations. See 'man sbatch' for help"
-    exit 1
+    $ret 1
 fi
 
 first=$((SLURM_ARRAY_TASK_ID * sims_per_task))

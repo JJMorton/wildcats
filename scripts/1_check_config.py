@@ -21,7 +21,14 @@ def main():
     print('======================================')
     print('1. Checking directory structure')
 
-    for dirpath in np.unique([config.simulation_output_dir, path.dirname(config.posterior_plot_file), path.dirname(config.parameters_file), path.dirname(config.stats_file)]):
+    dirs = [
+        config.simulation_output_dir,
+        path.dirname(config.posterior_plot_file),
+        path.dirname(config.parameters_file),
+        path.dirname(config.stats_file),
+        "../output/slurm"
+    ]
+    for dirpath in np.unique(dirs):
         if not path.isdir(dirpath):
             print(f'Directory "{dirpath}" doesn\'t exist, creating...')
             os.makedirs(dirpath)
