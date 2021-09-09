@@ -1,7 +1,6 @@
 # Check the inference/config.py configuration file, make sure everything is ready for simulations and inference
 
 import inference.config as config
-from inference.priors import join_priors
 import pickle
 from torch import tensor
 import os
@@ -36,30 +35,38 @@ def main():
             print(f'Directory "{dirpath}" exists')
 
     print('======================================')
-    print(f'2. Testing proposal distribution in "{config.proposal_pickle_file}"...')
-    try:
+    print('2. Testing prior and proposal distributions...')
+
+    if path.exists(config.prior_pickle_file):
+        with open(config.prior_pickle_file, 'rb') as f:
+            prior = pickle.load(f)
+    else:
+        print(f'Prior file "{config.prior_pickle_file}" does not exist, creating...')
+        prior = inference.priors.join_priors()
+        with open(config.prior_pickle_file, 'wb') as f:
+            pickle.dump(prior, f)
+
+    if path.exists(config.proposal_pickle_file):
         with open(config.proposal_pickle_file, 'rb') as f:
             proposal = pickle.load(f)
-    except:
-        if input(f'Proposal file "{config.proposal_pickle_file}" does not exist, would you like to dump the prior to it? [y/n] ') == 'y':
-            proposal = join_priors()
-            with open(config.proposal_pickle_file, 'wb') as f:
-                pickle.dump(proposal, f)
-        else:
-            exit(1)
+    else:
+        print(f'Proposal file "{config.proposal_pickle_file}" does not exist.')
+        exit(1)
+
     # Make sure the samples and probabilities are the correct shape
-    samples = proposal.sample(sample_batch_shape)
-    if samples.shape != (*sample_batch_shape, sample_length):
-        print(f'Samples are of an incorrect shape (wanted {(*sample_batch_shape, sample_length)}, got {samples.shape}), check the proposal')
-        exit(1)
-    else:
-        print('Samples are of the correct shape')
-    probs = proposal.log_prob(samples)
-    if probs.shape != sample_batch_shape:
-        print(f'Probabilities are of an incorrect shape (wanted {sample_batch_shape}, got {probs.shape}), check the proposal')
-        exit(1)
-    else:
-        print('Probabilities are of the correct shape')
+    for dist, name in zip((prior, proposal), ("prior", "proposal")):
+        samples = dist.sample(sample_batch_shape)
+        if samples.shape != (*sample_batch_shape, sample_length):
+            print(f'Samples from {name} are of an incorrect shape (wanted {(*sample_batch_shape, sample_length)}, got {samples.shape})')
+            exit(1)
+        else:
+            print(f'Samples from {name} are of the correct shape')
+        probs = dist.log_prob(samples)
+        if probs.shape != sample_batch_shape:
+            print(f'Probabilities from {name} are of an incorrect shape (wanted {sample_batch_shape}, got {probs.shape})')
+            exit(1)
+        else:
+            print(f'Probabilities from {name} are of the correct shape')
 
     print('======================================')
     print('3. Checking the csv files')

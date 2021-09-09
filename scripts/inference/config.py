@@ -1,6 +1,8 @@
 # Change this configuration file accordingly before running each round of inference
 # Check it by running 1_check_config.py
 
+prior_pickle_file = "../data/inference/prior.pkl"
+
 # The proposal to use for sampling, pickled using pickle.dump()
 # Any distribution with .sample() and .log_prob() should work, as long as both methods return a tensor of the correct shape.
 # For the first round, this should be the prior. For subsequent rounds, this should be the posterior of the previous round.
