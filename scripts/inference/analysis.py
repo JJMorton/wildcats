@@ -48,7 +48,7 @@ def create_params_plot(prior, axsize=4, num_cols=4):
         ax.set_title(param)
     return fig, axes.flat
 
-def plot_samples_vs_prior(prior, sample_sets, sample_labels, axsize=4, num_cols=4):
+def plot_samples_vs_prior(prior, sample_sets, sample_labels, actual_theta=None, axsize=4, num_cols=4):
     """
     Plot a histogram of each set of samples, together with the prior
     `sample_sets` should be of the shape (number of sets, number of samples, number of parameters), but can exclude dimension 0 if there is only one set.
