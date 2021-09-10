@@ -7,6 +7,7 @@ import os
 import os.path as path
 import numpy as np
 import inference.priors
+from sbi.utils.user_input_checks import process_prior
 import pandas as pd
 
 def main():
@@ -42,7 +43,7 @@ def main():
             prior = pickle.load(f)
     else:
         print(f'Prior file "{config.prior_pickle_file}" does not exist, creating...')
-        prior = inference.priors.join_priors()
+        prior = process_prior(inference.priors.join_priors())[0]
         with open(config.prior_pickle_file, 'wb') as f:
             pickle.dump(prior, f)
 
@@ -67,6 +68,13 @@ def main():
             exit(1)
         else:
             print(f'Probabilities from {name} are of the correct shape')
+
+    within_prior = prior.log_prob(proposal.sample((10_000,))).isfinite()
+    within_prior_count = within_prior[within_prior].shape[0]
+    if within_prior_count == 10_000:
+        print('All proposal samples are within prior.')
+    else:
+        print(f'WARNING: {within_prior_count} of 10,000 proposal samples are within the prior')
 
     print('======================================')
     print('3. Checking the csv files')

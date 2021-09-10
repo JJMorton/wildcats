@@ -1,23 +1,26 @@
 # Change this configuration file accordingly before running each round of inference
 # Check it by running 1_check_config.py
 
+# Pickled prior, will be created by 1_check_config.py if doesn't already exist
 prior_pickle_file = "../data/inference/prior.pkl"
 
 # The proposal to use for sampling, pickled using pickle.dump()
 # Any distribution with .sample() and .log_prob() should work, as long as both methods return a tensor of the correct shape.
-# For the first round, this should be the prior. For subsequent rounds, this should be the posterior of the previous round.
-proposal_pickle_file = "../data/inference/posterior0.pkl"
+# For the first round, this should be the same file as the prior.
+# For subsequent rounds, this should be the posterior of the previous round.
+proposal_pickle_file = "../data/inference/round0_posterior.pkl"
 
 # The file to dump the created posterior to
-posterior_pickle_file = "../data/inference/posterior1.pkl"
+posterior_pickle_file = "../data/inference/round1_posterior.pkl"
 
-posterior_plot_file = "../plots/inference/posterior1.jpg"
+# The file to save the plots made of posterior samples
+posterior_plot_file = "../plots/inference/round1_posterior.jpg"
 
 # The file to save the proposal's samples to, which will be used as the sets of parameters for the simulation stage.
-parameters_file = "../data/inference/theta1.csv"
+parameters_file = "../data/inference/round1_theta.csv"
 
 # The file to save the summary statistics from the simulations to.
-stats_file = "../data/inference/stats1.csv"
+stats_file = "../data/inference/round1_stats.csv"
 
 # File containing one set of summary statistics that act as our observations
 observation_file = "../data/inference/observation.csv"

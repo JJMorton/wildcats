@@ -74,8 +74,8 @@ def plot_samples_vs_prior(prior, sample_sets, sample_labels, actual_theta=None, 
     for ax, sample_set, param, dist, prior_limits in zip(axes, sample_sets, prior.params, prior.dists, prior.limits):
         # Plot samples
         sample_limits = (sample_set.min(), sample_set.max())
-#         limits = (min(prior_limits[0], sample_limits[0]), max(prior_limits[1], sample_limits[1]))
-        limits = prior_limits
+        limits = (min(prior_limits[0], sample_limits[0]), max(prior_limits[1], sample_limits[1]))
+#         limits = prior_limits
         bins = np.arange(*limits, (limits[1] - limits[0]) / 300)
         for samples, sample_label in zip(sample_set, sample_labels):
             ax.hist(samples, histtype='step', bins=bins, label=sample_label)

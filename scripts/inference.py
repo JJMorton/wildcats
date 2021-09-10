@@ -49,13 +49,20 @@ def dump_posterior(posterior, filename):
         pickle.dump(posterior, f)
         print(f'Dumped posterior to "{filename}"')
 
+def remove_outside_prior(prior, theta, x):
+    valid_samples = prior.log_prob(theta).isfinite()
+    print(f'{valid_samples[valid_samples].shape[0]} of {theta.shape[0]} samples are within prior')
+    return theta[valid_samples], x[valid_samples]
+
 def main():
     
     print("Importing data...")
     theta, x = get_theta_x()
     x_o = get_observation()
-    proposal = get_proposal()
     prior = get_prior()
+    proposal = prior if config.proposal_pickle_file == config.prior_pickle_file else get_proposal()
+
+    theta, x = remove_outside_prior(prior, theta, x)
     
     print(f'{theta.shape=}')
     print(f'{x.shape=}')
@@ -64,9 +71,9 @@ def main():
     print(f'{type(prior)=}')
     
     print("Running inference...")
-    inference = SNPE(prior=prior, density_estimator='maf')
+    inference = SNPE(prior=prior, density_estimator='mdn')
     inference = inference.append_simulations(theta, x, proposal=proposal)
-    density_estimator = inference.train(show_train_summary=True, training_batch_size=50)
+    density_estimator = inference.train(show_train_summary=True, use_combined_loss=True, training_batch_size=1000)
     posterior = inference.build_posterior(density_estimator, sample_with_mcmc=False)
     posterior.set_default_x(x_o)
     dump_posterior(posterior, config.posterior_pickle_file)
