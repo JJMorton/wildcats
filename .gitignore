@@ -1,6 +1,9 @@
 __pycache__/
 .ipynb_checkpoints/
-data/
+data/*
+!data/inference
+data/inference/*
+!data/inference/observation.csv
 logs/
 .idea/
 output/
@@ -9,6 +12,7 @@ sbi-logs/
 notes/
 plots/*
 !plots/model_schematic.png
+!plots/inference_flowchart.png
 .Rproj.user
 .Rhistory
 _temporary_command_*.txt
