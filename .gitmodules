@@ -1,6 +1,0 @@
-[submodule "scripts/inference/truncnorm"]
-	path = scripts/inference/truncnorm
-	url = https://github.com/toshas/torch_truncnorm.git
-[submodule "scripts/inference/two_nn"]
-	path = scripts/inference/two_nn
-	url = https://github.com/JJMorton/TWO-NN.git

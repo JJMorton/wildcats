@@ -1,6 +1,9 @@
 # Check the inference/config.py configuration file, make sure everything is ready for simulations and inference
 
 import inference.config as config
+import inference.utils as utils
+from inference.analysis import plot_samples_vs_prior
+import matplotlib.pyplot as plt
 import pickle
 from torch import tensor
 import os
@@ -16,14 +19,18 @@ def main():
     sample_batch_shape = (config.num_simulations,)
     stats_length = 102
 
+    have_stats = False
+    have_posterior = False
+    have_simulations = False
+
     print('Checking inference/config.py, make sure this script completes and outputs "OK"')
-    
+
     print('======================================')
     print('1. Checking directory structure')
 
     dirs = [
         config.simulation_output_dir,
-        path.dirname(config.posterior_plot_file),
+        config.plotting_dir,
         path.dirname(config.parameters_file),
         path.dirname(config.stats_file),
         "../output/slurm"
@@ -39,8 +46,7 @@ def main():
     print('2. Testing prior and proposal distributions...')
 
     if path.exists(config.prior_pickle_file):
-        with open(config.prior_pickle_file, 'rb') as f:
-            prior = pickle.load(f)
+        prior = utils.get_prior()
     else:
         print(f'Prior file "{config.prior_pickle_file}" does not exist, creating...')
         prior = process_prior(inference.priors.join_priors())[0]
@@ -48,8 +54,7 @@ def main():
             pickle.dump(prior, f)
 
     if path.exists(config.proposal_pickle_file):
-        with open(config.proposal_pickle_file, 'rb') as f:
-            proposal = pickle.load(f)
+        proposal = utils.get_proposal()
     else:
         print(f'Proposal file "{config.proposal_pickle_file}" does not exist.')
         exit(1)
@@ -78,50 +83,78 @@ def main():
 
     print('======================================')
     print('3. Checking the csv files')
-    for file in (config.parameters_file, config.stats_file):
-        if path.exists(file):
-            try:
-                data = pd.read_csv(file, index_col='index')
-            except:
-                print(f'"{file}" is an invalid format')
-                exit(1)
-            print(f'WARNING: "{file}" is of shape {data.shape}, ensure this file has valid contents if you\'re going to use it')
+
+    if path.exists(config.parameters_file):
+        try:
+            theta = utils.get_all_theta()
+        except:
+            print(f'"{config.parameters_file}" is an invalid format')
+            exit(1)
+        if theta.shape[1] != sample_length:
+            print(f'Parameters file is width {theta.shape[1]}, should be {sample_length}')
+            exit(1)
         else:
-            print(f'WARNING: "{file}" doesn\'t exist, we are okay to create it')
-
-    try:
-        observations = pd.read_csv(config.observation_file).values[0]
-    except:
-        print(f'Could not read observation from "{config.observation_file}", check that the file exists')
-        exit(1)
-    if len(observations) != stats_length:
-        print(f'Observation is length {len(observations)}, should be {stats_length}')
-        exit(1)
+            print(f'WARNING: "{config.parameters_file}" is present (shape {tuple(theta.shape)}), ensure this file has valid contents if you\'re going to use it')
     else:
-        print('Observation file is valid')
-    
-    print('======================================')
-    print('4. Checking output files')
-    for file in (config.posterior_pickle_file, config.posterior_plot_file):
-        if path.exists(file):
-            print(f'WARNING: "{file}" already exists, if you run inference again it will be overwritten.')
-    
-    if len(os.listdir(config.simulation_output_dir)) > 0:
-        print(f'WARNING: "{config.simulation_output_dir}" is not empty, any files named stats_*.csv may be overwritten')
-
-    if not path.exists(config.parameters_file):
-        print('======================================')
-        print('4. Taking samples from proposal')
-        
-        with open(config.proposal_pickle_file, 'rb') as f:
-            proposal = pickle.load(f)
-
+        print(f'"{config.parameters_file}" doesn\'t exist, creating...')
         samples = proposal.sample((config.num_simulations,))
         param_names = inference.priors.get_param_names()
         pd.DataFrame(np.array(samples), columns=param_names).to_csv(config.parameters_file, index=True, index_label="index")
         print(f'Saved proposal samples to "{config.parameters_file}"')
 
+    if path.exists(config.stats_file):
+        try:
+            x = utils.get_all_x()
+        except:
+            print(f'"{config.stats_file}" is an invalid format')
+            exit(1)
+        if x.shape[1] != stats_length:
+            print(f'Stats file is width {x.shape[1]}, should be {stats_length}')
+            exit(1)
+        else:
+            print(f'WARNING: "{config.stats_file}" is present (shape {tuple(x.shape)}), ensure this file has valid contents if you\'re going to use it')
+            have_stats = True
+    else:
+        print(f'"{config.stats_file}" doesn\'t exist, we are okay to create it when simulations are run')
+
+    if path.exists(config.observation_file):
+        try:
+            observations = utils.get_observation()
+        except:
+            print(f'Could not read observation from "{config.observation_file}", check that the file exists')
+            exit(1)
+        if len(observations) != stats_length:
+            print(f'Observation is length {len(observations)}, should be {stats_length}')
+            exit(1)
+        else:
+            print('Observation file is valid')
+
     print('======================================')
+    print('4. Checking output files')
+    if path.exists(config.posterior_pickle_file):
+        have_posterior = True
+        print(f'WARNING: "{config.posterior_pickle_file}" already exists, if you run inference again it will be overwritten.')
+
+    if len(os.listdir(config.simulation_output_dir)) > 0:
+        have_simulations = True
+        print(f'WARNING: "{config.simulation_output_dir}" is not empty, any files named stats_*.csv may be overwritten')
+
+    print('======================================')
+    print('5. Creating plot of priors')
+    print('Plotting priors...')
+    plot_samples_vs_prior(prior, samples, "samples")
+    plt.savefig(path.join(config.plotting_dir, "prior_samples.jpg"))
+    print(f'Saved plot of priors in "{config.plotting_dir}"')
+
+    print('======================================')
+    if have_posterior:
+        print('The posterior is present, update config.py to start the next round')
+    elif have_stats:
+        print('Appears that simulations have been run, inference should be run next')
+    elif have_simulations:
+        print('Appears that some simulations have been run, but there is no stats file. If the simulations have finished running, merge them together next')
+    else:
+        print('Next, run the simulations')
     print('OK')
 
 

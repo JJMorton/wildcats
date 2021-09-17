@@ -82,13 +82,16 @@ distributions = {
     "bottleneck_time_wild": TruncatedNormal(a=-6, b=np.inf, loc=3500, scale=500, validate_args=False),
     "captive_time": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.7), validate_args=False),
     "div_time": TruncatedNormal(a=-7, b=np.inf, loc=40000, scale=4000, validate_args=False),
+
     "mig_length_post_split": Uniform(low=0, high=10000, validate_args=False),
+    # SNPE seems to have issues with this uniform distribution, maybe try a wide trunc normal instead:
+    # "mig_length_post_split": TruncatedNormal(a=0, b=10000, loc=3000, scale=3000, validate_args=False),
+
     # Original:
 #     "mig_length_wild": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.5), validate_args=False),
-    # Widen 1:
-#     "mig_length_wild": LogNormalTranslated(s=0.5, loc=0, scale=np.exp(3.2), validate_args=False),
-    # Widen 2:
+    # Widened:
     "mig_length_wild": LogNormalTranslated(s=0.5, loc=0, scale=80, validate_args=False),
+
     "mig_rate_captive": LogNormalTranslated(s=0.5, loc=0, scale=0.08, validate_args=False),
     "mig_rate_post_split": TruncatedNormal(a=0, b=5, loc=0, scale=0.2, validate_args=False),
     "mig_rate_wild": LogNormalTranslated(s=0.5, loc=0, scale=0.08, validate_args=False),
@@ -99,8 +102,8 @@ distributions = {
     "pop_size_domestic_2": LogNormalTranslated(s=0.2, loc=5, scale=np.exp(9.2), validate_args=False)
 }
 
-def join_priors(normalise=False):
-    return JointPrior(distributions_normalised if normalise else distributions)
+def join_priors():
+    return JointPrior(distributions)
 
 def get_param_names():
     return list(distributions.keys())

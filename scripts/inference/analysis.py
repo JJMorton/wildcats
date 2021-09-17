@@ -9,24 +9,12 @@ import scipy.stats.mstats
 import math
 
 # from torch.distributions.kl import kl_divergence
-from .two_nn import twonn_dimension
 
 def kl_divergence(prior, posterior, x, num_samples=2000, base=math.e):
     samples = posterior.sample((num_samples,), x=x, show_progress_bars=False)
-#     sample_size = len(posterior.sample(show_progress_bars=False))
-#     samples = torch.zeros((num_samples, sample_size))
-#     for i in range(num_samples):
-#         print(f'Sampling... [{i+1}/{num_samples}]', end='', flush=True)
-#         samples[i] = posterior.sample(x=x, show_progress_bars=False)
-#         print("\r                                  \r", end='')
-#     print(f'Sampled using {num_samples} observations')
-    
-    def remove_invalid(t):
-        return t[~(t.isnan() | t.isinf())]
     
     prob_prior = prior.log_prob(samples) / math.log(base)
     prob_posterior = posterior.log_prob(samples, x=x) / math.log(base)
-#     diff = torch.exp(prob_posterior) * (prob_posterior - prob_prior)
     diff = (prob_posterior - prob_prior)
     
     # Remove all the nans and infs
@@ -75,7 +63,7 @@ def plot_samples_vs_prior(prior, sample_sets, sample_labels, actual_theta=None, 
         # Plot samples
         sample_limits = (sample_set.min(), sample_set.max())
         limits = (min(prior_limits[0], sample_limits[0]), max(prior_limits[1], sample_limits[1]))
-#         limits = prior_limits
+        # limits = prior_limits
         bins = np.arange(*limits, (limits[1] - limits[0]) / 300)
         for samples, sample_label in zip(sample_set, sample_labels):
             ax.hist(samples, histtype='step', bins=bins, label=sample_label)

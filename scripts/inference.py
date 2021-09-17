@@ -6,63 +6,21 @@
 #  4. the csv of the observation we made (a single set of summary statistics)
 
 import inference.config as config
-import pandas as pd
-from torch import tensor
-import torch
-import pickle
+import inference.utils as utils
 from sbi.inference import SNPE
-from sbi.utils.user_input_checks import process_prior
-import os.path as path
 import matplotlib.pyplot as plt
 from inference.analysis import plot_samples_vs_prior
-from inference.priors import join_priors
-
-def get_theta_x():
-    # Read the csv files and create torch tensors for use with sbi
-    
-    stats_df = pd.read_csv(config.stats_file, index_col="index").drop(columns=["seed"])
-    # Only take the parameter sets that there are summary statistics for in the table above
-    params_df = pd.read_csv(config.parameters_file, index_col="index")
-    params_df = params_df[params_df.index.isin(stats_df.index)]
-
-    # Get the parameters and outputs into torch tensors
-    theta = tensor(params_df.values, dtype=torch.float32)
-    x = tensor(stats_df.values, dtype=torch.float32)
-    
-    return theta, x
-
-def get_observation():
-    return tensor(pd.read_csv(config.observation_file).values, dtype=torch.float32)[0]
-
-def get_prior():
-    with open(config.prior_pickle_file, 'rb') as f:
-        prior = pickle.load(f)
-    return prior
-
-def get_proposal():
-    with open(config.proposal_pickle_file, 'rb') as f:
-        proposal = pickle.load(f)
-    return proposal
-
-def dump_posterior(posterior, filename):
-    with open(filename, 'wb') as f:
-        pickle.dump(posterior, f)
-        print(f'Dumped posterior to "{filename}"')
-
-def remove_outside_prior(prior, theta, x):
-    valid_samples = prior.log_prob(theta).isfinite()
-    print(f'{valid_samples[valid_samples].shape[0]} of {theta.shape[0]} samples are within prior')
-    return theta[valid_samples], x[valid_samples]
+import os.path as path
 
 def main():
     
     print("Importing data...")
-    theta, x = get_theta_x()
-    x_o = get_observation()
-    prior = get_prior()
-    proposal = prior if config.proposal_pickle_file == config.prior_pickle_file else get_proposal()
+    theta, x = utils.get_theta_x()
+    x_o = utils.get_observation()
+    prior = utils.get_prior()
+    proposal = prior if config.proposal_pickle_file == config.prior_pickle_file else utils.get_proposal()
 
-    theta, x = remove_outside_prior(prior, theta, x)
+    theta, x = utils.remove_outside_prior(prior, theta, x)
     
     print(f'{theta.shape=}')
     print(f'{x.shape=}')
@@ -76,11 +34,11 @@ def main():
     density_estimator = inference.train(show_train_summary=True, use_combined_loss=True, training_batch_size=1000)
     posterior = inference.build_posterior(density_estimator, sample_with_mcmc=False)
     posterior.set_default_x(x_o)
-    dump_posterior(posterior, config.posterior_pickle_file)
+    utils.save_posterior(posterior)
     
     print("Plotting posterior samples...")
     fig, _ = plot_samples_vs_prior(prior, posterior.sample((10_000,)), "posterior")
-    plt.savefig(config.posterior_plot_file)
+    plt.savefig(path.join(config.plotting_dir, utils.strip_filename(config.posterior_pickle_file) + '.jpg'))
 
 if __name__ == "__main__":
     main()
