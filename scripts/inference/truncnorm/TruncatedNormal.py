@@ -94,7 +94,9 @@ class TruncatedStandardNormal(Distribution):
     def log_prob(self, value):
         if self._validate_args:
             self._validate_sample(value)
-        return CONST_LOG_INV_SQRT_2PI - self._log_Z - (value ** 2) * 0.5
+        log_prob = CONST_LOG_INV_SQRT_2PI - self._log_Z - (value ** 2) * 0.5
+        log_prob[~self.support.check(value)] = -math.inf
+        return log_prob
 
     def rsample(self, sample_shape=torch.Size()):
         shape = self._extended_shape(sample_shape)

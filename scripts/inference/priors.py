@@ -36,7 +36,7 @@ class JointPrior(Distribution):
         """
         self.dists = list(dists_dict.values())
         self.params = list(dists_dict.keys())
-        self.limits = [dist.icdf(tensor([0.000001, 0.99999])) for dist in self.dists]
+        self.limits = [dist.icdf(tensor([0.000001, 0.999999])) for dist in self.dists]
         self._batch_shape = torch.Size()
         self._event_shape = torch.Size([len(self.dists)])
         self._mean = tensor([dist.mean for dist in self.dists])
@@ -83,9 +83,9 @@ distributions = {
     "captive_time": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.7), validate_args=False),
     "div_time": TruncatedNormal(a=-7, b=np.inf, loc=40000, scale=4000, validate_args=False),
 
-    "mig_length_post_split": Uniform(low=0, high=10000, validate_args=False),
+    # "mig_length_post_split": Uniform(low=0, high=10000, validate_args=False),
     # SNPE seems to have issues with this uniform distribution, maybe try a wide trunc normal instead:
-    # "mig_length_post_split": TruncatedNormal(a=0, b=10000, loc=3000, scale=3000, validate_args=False),
+    "mig_length_post_split": TruncatedNormal(a=0, b=10000, loc=3000, scale=3000, validate_args=False),
 
     # Original:
 #     "mig_length_wild": LogNormalTranslated(s=0.4, loc=1, scale=np.exp(2.5), validate_args=False),
